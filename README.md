@@ -6,6 +6,7 @@ Este projeto é a implementação de um bot simples para o jogo **Rush'n Attack*
 
 - Python **3.7**
 - `gym-retro` **0.7.0**
+- `opencv-python` (cv2)
 
 ## Instalação
 
@@ -16,7 +17,7 @@ pyenv install 3.7.17
 pyenv virtualenv 3.7.17 meuambiente37
 pyenv activate meuambiente37
 
-pip install gym-retro==0.7.0
+pip install gym-retro==0.7.0 opencv-python
 
 ## Importando a ROM
 
