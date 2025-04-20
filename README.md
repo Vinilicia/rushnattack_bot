@@ -2,12 +2,12 @@
 
 Este projeto é a implementação de um bot simples para o jogo **Rush'n Attack** do console **NES**, utilizando a biblioteca `gym-retro`.
 
-## 📦 Requisitos
+## Requisitos
 
 - Python **3.7**
 - `gym-retro` **0.7.0**
 
-## 🔧 Instalação
+## Instalação
 
 Use `pyenv` para garantir a versão correta do Python, e instale o ambiente:
 
@@ -18,3 +18,10 @@ pyenv activate meuambiente37
 
 pip install gym-retro==0.7.0
 
+## Importando a ROM
+
+python -m retro.import .
+
+## Executando o Bot
+
+python rush_n_attack_bot.py
