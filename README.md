@@ -1,28 +1,28 @@
-# Bot do Jogo Rush'n Attack (NES)
+# Rush'n Attack (NES) Game Bot
 
-Este projeto é a implementação de um bot simples para o jogo **Rush'n Attack** do console **NES**, utilizando a biblioteca `gym-retro`.
+This project is a simple bot implementation for the **Rush'n Attack** game on the **NES** console, using the `gym-retro` library.
 
-## Requisitos
+## Requirements
 
 - Python **3.7**
 - `gym-retro` **0.7.0**
 - `opencv-python` (cv2)
 
-## Instalação
+## Installation
 
-Use `pyenv` para garantir a versão correta do Python, e instale o ambiente:
+Use `pyenv` to ensure the correct Python version, and set up the environment:
 
 ```bash
 pyenv install 3.7.17
-pyenv virtualenv 3.7.17 meuambiente37
-pyenv activate meuambiente37
+pyenv virtualenv 3.7.17 myenv37
+pyenv activate myenv37
 
 pip install gym-retro==0.7.0 opencv-python
 
-## Importando a ROM
+## Importing the ROM
 
 python -m retro.import .
 
-## Executando o Bot
+## Running the Bot
 
 python rush_n_attack_bot.py
