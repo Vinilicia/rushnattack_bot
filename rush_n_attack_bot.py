@@ -20,6 +20,7 @@ def find_enemy_1(binary_image, positions, block_height=60, block_widght=60):
     distance = 100
     min_density_white = 250
     min_density_black = 250
+    max_density_black = 2000
     max_density_blue = 200
     max_density_gray = 1000
     for y in range(0, height, block_height):
@@ -33,7 +34,7 @@ def find_enemy_1(binary_image, positions, block_height=60, block_widght=60):
                 density = np.sum(block == 0)
                 density_blue = np.sum(block == 60)
                 density_gray = np.sum(block == 110)
-                if density > min_density_black and density_blue < max_density_blue and density_gray < max_density_gray:
+                if density > min_density_black and density < max_density_black and density_blue < max_density_blue and density_gray < max_density_gray:
                     new_pos = (x, y)
                     detected = False
                     for pos in positions:
@@ -56,48 +57,50 @@ def main():
     env = retro.make(game="RushnAttack-Nes")
     obs = env.reset()
     while True:
-            env.render()
-            ###### ['B', 'A', 'SELECT', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT'] #####
-            action = np.zeros(env.action_space.shape[0], dtype=np.uint8)
-            frame = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
-            frame = cv2.resize(frame, (960, 900))
-            frame = frame[200:frame.shape[0]-55,:]
-            gap = 10
-            frame = (frame // gap) * gap
-            player_position = find_player(frame)
-            enemy_positions = []
-            find_enemy_1(frame, enemy_positions)
-            x, y = player_position
-            ########## Debugging ###########
-            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-            cv2.rectangle(frame, (x, y), (x+60, y+120), (255, 0, 0), 2)
-            for (x, y) in enemy_positions:
-                cv2.rectangle(frame, (x, y), (x + 60, y + 120), (0, 0, 255), 2)
-            ########## Debugging ###########
-            if enemy_positions:
-                enemy, dist = closest_enemy(player_position, enemy_positions)
-                if dist < 80:
-                    action[0] = 1 # B
-                else:
-                    if player_position[0] < enemy_positions[enemy][0]:
-                        #pass
-                        action[7] = 1 # Right
-                    else:
-                        #pass
-                        action[6] = 1 # Left
+        env.render()
+        ###### ['B', 'A', 'SELECT', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT'] #####
+        action = np.zeros(env.action_space.shape[0], dtype=np.uint8)
+        frame = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
+        frame = cv2.resize(frame, (960, 900))
+        frame = frame[200:frame.shape[0]-55,:]
+        # kernel = np.ones((5, 5), np.uint8)  # Estrutura usada para dilatação (você pode aumentar o tamanho)
+        # frame = cv2.dilate(frame, kernel, iterations=1)
+        gap = 10
+        frame = (frame // gap) * gap
+        player_position = find_player(frame)
+        enemy_positions = []
+        find_enemy_1(frame, enemy_positions)
+        x, y = player_position
+        ########## Debugging ###########
+        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+        cv2.rectangle(frame, (x, y), (x+60, y+120), (255, 0, 0), 2)
+        for (x, y) in enemy_positions:
+            cv2.rectangle(frame, (x, y), (x + 60, y + 120), (0, 0, 255), 2)
+        ########## Debugging ###########
+        if enemy_positions:
+            enemy, dist = closest_enemy(player_position, enemy_positions)
+            if dist < 80:
+                action[0] = 1 # B
             else:
-                action[7] = 1 # Right
-            obs, reward, done, info = env.step(action)
-            #r = 110
-            #frame = cv2.inRange(frame, r, r)
-            cv2.imshow("Rush'n Attack - NES", frame)
-            #action = env.action_space.sample()
-            #time.sleep(0.02)
-            if done:
-                obs = env.reset()
-            # ESC
-            if cv2.waitKey(1) & 0xFF == 27:
-                break
+                if player_position[0] < enemy_positions[enemy][0]:
+                    #pass
+                    action[7] = 1 # Right
+                else:
+                    #pass
+                    action[6] = 1 # Left
+        else:
+            action[7] = 1 # Right
+        #r = 110
+        #frame = cv2.inRange(frame, r, r)
+        cv2.imshow("Rush'n Attack - NES", frame)
+        #action = env.action_space.sample()
+        obs, reward, done, info = env.step(action)
+        #time.sleep(0.02)
+        if done:
+            obs = env.reset()
+        # ESC
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
     env.close()
     cv2.destroyAllWindows()
 
