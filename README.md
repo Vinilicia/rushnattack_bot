@@ -11,18 +11,21 @@ This project is a simple bot implementation for the **Rush'n Attack** game on th
 ## Installation
 
 Use `pyenv` to ensure the correct Python version, and set up the environment:
-
 ```bash
 pyenv install 3.7.17
 pyenv virtualenv 3.7.17 myenv37
 pyenv activate myenv37
-
 pip install gym-retro==0.7.0 opencv-python
+```
 
 ## Importing the ROM
 
+```bash
 python -m retro.import .
+```
 
 ## Running the Bot
 
+```bash
 python rush_n_attack_bot.py
+```
