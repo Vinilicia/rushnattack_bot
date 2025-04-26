@@ -39,7 +39,7 @@ def detect_enemy1(frame, block_height=20, block_width=60):
         mask_white = np.all(block >= white, axis=2)
         sum_white = np.sum(mask_white)
         if sum_white > min_white:
-            positions.append((x+30, y-10))
+            positions.append((x+30, y-10, 1))
             x += 60
         else:
             x += 10
@@ -61,7 +61,7 @@ def detect_enemy2(frame):
             if M['m00'] != 0:
                 cx = int(M['m10'] / M['m00'])
                 cy = int(M['m01'] / M['m00'])
-                centers.append((cx, cy))
+                centers.append((cx, cy, 1))
     return centers
 
 def detect_enemy3(frame):
@@ -69,10 +69,10 @@ def detect_enemy3(frame):
     upper_yellow = np.array([15, 199, 248])
     mask = cv2.inRange(frame, lower_yellow, upper_yellow)
     kernel = np.ones((10, 10), np.uint8)
-    dilated_mask = cv2.dilate(mask, kernel, iterations=10)
+    dilated_mask = cv2.erode(mask, kernel, iterations=1)
     contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     centers = []
-    min_area = 500
+    min_area = 3
     for cnt in contours:
         area = cv2.contourArea(cnt)
         if area > min_area:
@@ -80,13 +80,13 @@ def detect_enemy3(frame):
             if M['m00'] != 0:
                 cx = int(M['m10'] / M['m00'])
                 cy = int(M['m01'] / M['m00'])
-                centers.append((cx, cy))
+                centers.append((cx, cy, 3))
     return centers
 
 def closest_enemy(player_pos, enemy_positions):
     best_idx, best_dist = 0, float('inf')
     px, py = player_pos
-    for i, (ex, ey) in enumerate(enemy_positions):
+    for i, (ex, ey, _) in enumerate(enemy_positions):
         d = np.hypot(px-ex, py-ey)
         if d < best_dist:
             best_dist, best_idx = d, i
@@ -95,7 +95,8 @@ def closest_enemy(player_pos, enemy_positions):
 def main():
     env = retro.make(game="RushnAttack-Nes")
     obs = env.reset()
-    b_press_frames = 0  # variável global no seu while True
+    b_press_frames = 0
+    press_down = False
 
     while True:
         ###### ['B', 'A', 'SELECT', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT'] #####
@@ -105,14 +106,17 @@ def main():
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
         player_pos = detect_player(frame)
         enemies2 = detect_enemy2(frame)
-        frame3 = cv2.cvtColor(obs, cv2.COLOR_BGR2RGB)
-        frame3 = cv2.cvtColor(frame3, cv2.COLOR_RGB2HSV)
-        enemies3 = detect_enemy3(frame3)
+        enemies3 = detect_enemy3(frame)
+        enemies = enemies1 + enemies2 + enemies3
         action = np.zeros(env.action_space.shape[0], dtype=np.uint8)
-        if enemies1:
-            idx, dist = closest_enemy(player_pos, enemies1)
-            ex, ey = enemies1[idx]
+        if enemies:
+            idx, dist = closest_enemy(player_pos, enemies)
+            ex, ey, type = enemies[idx]
             if dist < 100:
+                if type == 3:
+                    press_down = True
+                else:
+                    press_down = False
                 b_press_frames = 3
             else:
                 action[7 if player_pos[0] < ex else 6] = 1
@@ -123,17 +127,19 @@ def main():
             action = np.zeros(env.action_space.shape[0], dtype=np.uint8)
             action[0] = 1
             b_press_frames -= 1
+            if press_down:
+                action[5] = 1
         obs, _, done, _ = env.step(action)
 
         debug = frame.copy()
         debug = cv2.cvtColor(debug, cv2.COLOR_HSV2BGR)
         px, py = player_pos
         cv2.rectangle(debug, (px-30, py-60), (px+30, py+60), (255, 0, 0), 2)
-        for (ex, ey) in enemies1:
+        for (ex, ey, _) in enemies1:
            cv2.rectangle(debug, (ex-10, 510), (ex+50, 620), (0, 0, 255), 2)
-        for (ex, ey) in enemies2:
+        for (ex, ey, _) in enemies2:
            cv2.rectangle(debug, (ex-30, ey-60), (ex+30, ey+60), (0, 255, 0), 2)
-        for (ex, ey) in enemies3:
+        for (ex, ey, _) in enemies3:
            cv2.rectangle(debug, (ex-30, ey-60), (ex+30, ey+60), (0, 255, 255), 2)
 
         cv2.imshow("Rush'n Attack - HSV Detection", debug)
