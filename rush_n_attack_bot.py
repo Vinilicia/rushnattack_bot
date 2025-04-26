@@ -3,17 +3,6 @@ import cv2
 import numpy as np
 import time
 
-def calculate_mean_image(path):
-    img = cv2.imread(path)
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    lower_yellow = np.array([10, 190, 190])
-    upper_yellow = np.array([20, 200, 250])
-    mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
-    result_yellow = cv2.bitwise_and(img, img, mask=mask_yellow)
-    cv2.imshow("Azul Detectado", result_yellow)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
 def detect_player(frame):
     lower_blue = np.array([110, 200, 150])
     upper_blue = np.array([120, 255, 255])
@@ -22,13 +11,18 @@ def detect_player(frame):
     dilated_mask = cv2.dilate(mask, kernel, iterations=10)
     contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     centers = []
+    min_area = 500
     for cnt in contours:
-        M = cv2.moments(cnt)
-        if M['m00'] != 0:
-            cx = int(M['m10'] / M['m00'])
-            cy = int(M['m01'] / M['m00'])
-            centers.append((cx, cy))
-    return centers[0]
+        area = cv2.contourArea(cnt)
+        if area > min_area:
+            M = cv2.moments(cnt)
+            if M['m00'] != 0:
+                cx = int(M['m10'] / M['m00'])
+                cy = int(M['m01'] / M['m00'])
+                centers.append((cx, cy))
+    if centers:
+        return centers[0]
+    return (0, 0)
 
 def detect_enemy1(frame, block_height=20, block_width=60):
     height, width, _ = frame.shape
@@ -58,28 +52,34 @@ def detect_enemy2(frame):
     dilated_mask = cv2.dilate(mask, kernel, iterations=10)
     contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     centers = []
+    min_area = 500
     for cnt in contours:
-        M = cv2.moments(cnt)
-        if M['m00'] != 0:
-            cx = int(M['m10'] / M['m00'])
-            cy = int(M['m01'] / M['m00'])
-            centers.append((cx, cy))
+        area = cv2.contourArea(cnt)
+        if area > min_area:
+            M = cv2.moments(cnt)
+            if M['m00'] != 0:
+                cx = int(M['m10'] / M['m00'])
+                cy = int(M['m01'] / M['m00'])
+                centers.append((cx, cy))
     return centers
 
 def detect_enemy3(frame):
-    lower_yellow = np.array([10, 190, 190])
-    upper_yellow = np.array([20, 200, 250])
+    lower_yellow = np.array([15, 197, 244])
+    upper_yellow = np.array([15, 199, 248])
     mask = cv2.inRange(frame, lower_yellow, upper_yellow)
     kernel = np.ones((10, 10), np.uint8)
     dilated_mask = cv2.dilate(mask, kernel, iterations=10)
     contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     centers = []
+    min_area = 5000
     for cnt in contours:
-        M = cv2.moments(cnt)
-        if M['m00'] != 0:
-            cx = int(M['m10'] / M['m00'])
-            cy = int(M['m01'] / M['m00'])
-            centers.append((cx, cy))
+        area = cv2.contourArea(cnt)
+        if area > min_area:
+            M = cv2.moments(cnt)
+            if M['m00'] != 0:
+                cx = int(M['m10'] / M['m00'])
+                cy = int(M['m01'] / M['m00'])
+                centers.append((cx, cy))
     return centers
 
 def closest_enemy(player_pos, enemy_positions):
@@ -97,18 +97,20 @@ def main():
 
     while True:
         ###### ['B', 'A', 'SELECT', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT'] #####
+        obs = cv2.resize(obs, (960, 900))[200:900-50, :]
         frame = obs
-        frame = cv2.resize(frame, (960, 900))[200:900-50, :]
         enemies1 = detect_enemy1(frame)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
         player_pos = detect_player(frame)
         enemies2 = detect_enemy2(frame)
-        enemies3 = detect_enemy3(frame)
+        frame3 = cv2.cvtColor(obs, cv2.COLOR_BGR2RGB)
+        frame3 = cv2.cvtColor(frame3, cv2.COLOR_RGB2HSV)
+        enemies3 = detect_enemy3(frame3)
         action = np.zeros(env.action_space.shape[0], dtype=np.uint8)
         if enemies1:
             idx, dist = closest_enemy(player_pos, enemies1)
             ex, ey = enemies1[idx]
-            if dist < 90:
+            if dist < 100:
                 action[0] = 1  # B
             else:
                 action[7 if player_pos[0] < ex else 6] = 1
@@ -124,16 +126,14 @@ def main():
         for (ex, ey) in enemies2:
            cv2.rectangle(debug, (ex-30, ey-60), (ex+30, ey+60), (0, 255, 0), 2)
         for (ex, ey) in enemies3:
-            cv2.rectangle(debug, (ex-30, ey-60), (ex+30, ey+60), (0, 255, 255), 2)
+           cv2.rectangle(debug, (ex-30, ey-60), (ex+30, ey+60), (0, 255, 255), 2)
 
         cv2.imshow("Rush'n Attack - HSV Detection", debug)
         if cv2.waitKey(1) & 0xFF == 27:
             break
-
         obs, _, done, _ = env.step(action)
         if done:
             obs = env.reset()
-
         time.sleep(1/60)
 
     env.close()
