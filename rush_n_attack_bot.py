@@ -1,44 +1,86 @@
 import retro
-import numpy as np
 import cv2
+import numpy as np
+import time
 
-def find_player(bgr_image, block_height=120, block_width=60):
-    h, w, _ = bgr_image.shape
-    max_density = 0
-    best_pos = (0, 0)
+def calculate_mean_image(path):
+    img = cv2.imread(path)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    lower_yellow = np.array([10, 190, 190])
+    upper_yellow = np.array([20, 200, 250])
+    mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
+    result_yellow = cv2.bitwise_and(img, img, mask=mask_yellow)
+    cv2.imshow("Azul Detectado", result_yellow)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-    # Ajuste conforme a cor do player
-    lower_blue = np.array([100, 50, 50])   # BGR
-    upper_blue = np.array([180, 120, 90])
+def detect_player(frame):
+    lower_blue = np.array([110, 200, 150])
+    upper_blue = np.array([120, 255, 255])
+    mask = cv2.inRange(frame, lower_blue, upper_blue)
+    kernel = np.ones((10, 10), np.uint8)
+    dilated_mask = cv2.dilate(mask, kernel, iterations=10)
+    contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    centers = []
+    for cnt in contours:
+        M = cv2.moments(cnt)
+        if M['m00'] != 0:
+            cx = int(M['m10'] / M['m00'])
+            cy = int(M['m01'] / M['m00'])
+            centers.append((cx, cy))
+    return centers[0]
 
-    mask = cv2.inRange(bgr_image, lower_blue, upper_blue)
+def detect_enemy1(frame, block_height=20, block_width=60):
+    height, width, _ = frame.shape
+    white = np.array([240, 240, 240], dtype=np.uint8)
+    min_white = 150
+    positions = []
+    for y in(365, 570):
+        x = 0
+        while x < width:
+            if x + block_width > width:
+                break
+            block = frame[y:y+block_height, x:x+block_width]
+            mask_white = np.all(block >= white, axis=2)
+            sum_white = np.sum(mask_white)
+            if sum_white > min_white:
+                positions.append((x+30, y-10))
+                x += 60
+            else:
+                x += 10
+    return positions
 
-    for y in range(0, h - block_height + 1, 10):
-        for x in range(0, w - block_width + 1, 10):
-            block = mask[y:y+block_height, x:x+block_width]
-            density = int(block.sum() / 255)
-            if density > max_density:
-                max_density = density
-                best_pos = (x, y)
+def detect_enemy2(frame):
+    lower_orange = np.array([5, 250, 200])
+    upper_orange = np.array([7, 255, 255])
+    mask = cv2.inRange(frame, lower_orange, upper_orange)
+    kernel = np.ones((10, 10), np.uint8)
+    dilated_mask = cv2.dilate(mask, kernel, iterations=10)
+    contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    centers = []
+    for cnt in contours:
+        M = cv2.moments(cnt)
+        if M['m00'] != 0:
+            cx = int(M['m10'] / M['m00'])
+            cy = int(M['m01'] / M['m00'])
+            centers.append((cx, cy))
+    return centers
 
-    return best_pos
-
-def detect_enemy_by_mean_hsv(bgr_image, mean_hsv_target, threshold=30):
-    detected = []
-    h, w, _ = bgr_image.shape
-    bh, bw = 60, 120
-
-    hsv_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2HSV)
-
-    for y in range(0, h - bh + 1, 60):
-        for x in range(0, w - bw + 1, 30):
-            block = hsv_image[y:y+bh, x:x+bw]
-            mean_block = np.mean(block.reshape(-1, 3), axis=0)
-            dist = np.linalg.norm(mean_block - mean_hsv_target)
-            if dist < threshold:
-                detected.append((x, y))
-
-    return detected
+def detect_enemy3(frame):
+    lower_yellow = np.array([10, 190, 190])
+    upper_yellow = np.array([20, 200, 250])
+    mask = cv2.inRange(frame, lower_yellow, upper_yellow)
+    kernel = np.ones((10, 10), np.uint8)
+    dilated_mask = cv2.dilate(mask, kernel, iterations=10)
+    contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    centers = []
+    for cnt in contours:
+        M = cv2.moments(cnt)
+        if M['m00'] != 0:
+            cx = int(M['m10'] / M['m00'])
+            cy = int(M['m01'] / M['m00'])
+            centers.append((cx, cy))
+    return centers
 
 def closest_enemy(player_pos, enemy_positions):
     best_idx, best_dist = 0, float('inf')
@@ -53,38 +95,36 @@ def main():
     env = retro.make(game="RushnAttack-Nes")
     obs = env.reset()
 
-    # Carrega o arquivo com médias HSV
-    enemy_data = np.load("enemy_hist_hsv.npz")
-    mean_hsv = np.array([
-        enemy_data["mean_H"],
-        enemy_data["mean_S"],
-        enemy_data["mean_V"]
-    ], dtype=np.float32)
-
     while True:
-        rgb = obs
-        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-        bgr = cv2.resize(bgr, (960, 900))[200:900-55, :]
-
-        player_pos = find_player(bgr)
-        enemies = detect_enemy_by_mean_hsv(bgr, mean_hsv, threshold=30)
-
+        ###### ['B', 'A', 'SELECT', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT'] #####
+        frame = obs
+        frame = cv2.resize(frame, (960, 900))[200:900-50, :]
+        enemies1 = detect_enemy1(frame)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
+        player_pos = detect_player(frame)
+        enemies2 = detect_enemy2(frame)
+        enemies3 = detect_enemy3(frame)
         action = np.zeros(env.action_space.shape[0], dtype=np.uint8)
-        if enemies:
-            idx, dist = closest_enemy(player_pos, enemies)
-            ex, ey = enemies[idx]
-            if dist < 80:
+        if enemies1:
+            idx, dist = closest_enemy(player_pos, enemies1)
+            ex, ey = enemies1[idx]
+            if dist < 90:
                 action[0] = 1  # B
             else:
                 action[7 if player_pos[0] < ex else 6] = 1
         else:
             action[7] = 1  # direita
 
-        debug = bgr.copy()
+        debug = frame.copy()
+        debug = cv2.cvtColor(debug, cv2.COLOR_HSV2BGR)
         px, py = player_pos
-        cv2.rectangle(debug, (px, py), (px+60, py+120), (255, 0, 0), 2)
-        for (ex, ey) in enemies:
-            cv2.rectangle(debug, (ex, ey), (ex+60, ey+120), (0, 0, 255), 2)
+        cv2.rectangle(debug, (px-30, py-60), (px+30, py+60), (255, 0, 0), 2)
+        for (ex, ey) in enemies1:
+           cv2.rectangle(debug, (ex-10, 510), (ex+50, 620), (0, 0, 255), 2)
+        for (ex, ey) in enemies2:
+           cv2.rectangle(debug, (ex-30, ey-60), (ex+30, ey+60), (0, 255, 0), 2)
+        for (ex, ey) in enemies3:
+            cv2.rectangle(debug, (ex-30, ey-60), (ex+30, ey+60), (0, 255, 255), 2)
 
         cv2.imshow("Rush'n Attack - HSV Detection", debug)
         if cv2.waitKey(1) & 0xFF == 27:
@@ -93,6 +133,8 @@ def main():
         obs, _, done, _ = env.step(action)
         if done:
             obs = env.reset()
+
+        time.sleep(1/60)
 
     env.close()
     cv2.destroyAllWindows()
