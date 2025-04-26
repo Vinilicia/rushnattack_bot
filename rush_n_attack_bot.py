@@ -29,19 +29,20 @@ def detect_enemy1(frame, block_height=20, block_width=60):
     white = np.array([240, 240, 240], dtype=np.uint8)
     min_white = 150
     positions = []
-    for y in(365, 570):
-        x = 0
-        while x < width:
-            if x + block_width > width:
-                break
-            block = frame[y:y+block_height, x:x+block_width]
-            mask_white = np.all(block >= white, axis=2)
-            sum_white = np.sum(mask_white)
-            if sum_white > min_white:
-                positions.append((x+30, y-10))
-                x += 60
-            else:
-                x += 10
+    #for y in(365, 570):
+    y = 570
+    x = 0
+    while x < width:
+        if x + block_width > width:
+            break
+        block = frame[y:y+block_height, x:x+block_width]
+        mask_white = np.all(block >= white, axis=2)
+        sum_white = np.sum(mask_white)
+        if sum_white > min_white:
+            positions.append((x+30, y-10))
+            x += 60
+        else:
+            x += 10
     return positions
 
 def detect_enemy2(frame):
@@ -71,7 +72,7 @@ def detect_enemy3(frame):
     dilated_mask = cv2.dilate(mask, kernel, iterations=10)
     contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     centers = []
-    min_area = 5000
+    min_area = 500
     for cnt in contours:
         area = cv2.contourArea(cnt)
         if area > min_area:
@@ -94,6 +95,7 @@ def closest_enemy(player_pos, enemy_positions):
 def main():
     env = retro.make(game="RushnAttack-Nes")
     obs = env.reset()
+    b_press_frames = 0  # variável global no seu while True
 
     while True:
         ###### ['B', 'A', 'SELECT', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT'] #####
@@ -111,11 +113,17 @@ def main():
             idx, dist = closest_enemy(player_pos, enemies1)
             ex, ey = enemies1[idx]
             if dist < 100:
-                action[0] = 1  # B
+                b_press_frames = 3
             else:
                 action[7 if player_pos[0] < ex else 6] = 1
         else:
             action[7] = 1  # direita
+
+        if b_press_frames > 0:
+            action = np.zeros(env.action_space.shape[0], dtype=np.uint8)
+            action[0] = 1
+            b_press_frames -= 1
+        obs, _, done, _ = env.step(action)
 
         debug = frame.copy()
         debug = cv2.cvtColor(debug, cv2.COLOR_HSV2BGR)
@@ -131,7 +139,6 @@ def main():
         cv2.imshow("Rush'n Attack - HSV Detection", debug)
         if cv2.waitKey(1) & 0xFF == 27:
             break
-        obs, _, done, _ = env.step(action)
         if done:
             obs = env.reset()
         time.sleep(1/60)
