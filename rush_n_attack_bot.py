@@ -356,7 +356,8 @@ def main():
                         if dist < 100: # Distância de ataque para inimigo tipo 3
                             print(f"INFO: Inimigo Tipo 3 PRÓXIMO. Dist: {dist:.2f}. Abaixando e preparando tiro.")
                             current_frame_press_down = True
-                            b_press_frames = 3 # Ajuste conforme necessário
+                            if b_press_frames == 0:
+                                b_press_frames = 4 # Ajuste conforme necessário
                             action[7 if player_pos[0] < ex else 6] = 1 # Mover enquanto ataca
                             acted_on_enemy_this_frame = True
                         elif dist < 150: # Perseguir inimigo tipo 3
@@ -368,7 +369,8 @@ def main():
                     elif dist < 100: # Distância geral de ataque para outros inimigos
                         print(f"INFO: Inimigo {enemy_type} PRÓXIMO. Dist: {dist:.2f}. Preparando tiro.")
                         # current_frame_press_down permanece False por padrão para ataque em pé
-                        b_press_frames = 3 # Ajuste conforme necessário
+                        if b_press_frames == 0:
+                            b_press_frames = 4 # Ajuste conforme necessário
                         action[7 if player_pos[0] < ex else 6] = 1 # Mover enquanto ataca
                         acted_on_enemy_this_frame = True
                     elif dist < 250 and enemy_type != ENEMY_TYPE_MINE: # Distância geral de perseguição
@@ -391,7 +393,8 @@ def main():
         if b_press_frames > 0:
             print(f"ACTION: ATACANDO! b_frames_restantes: {b_press_frames}, Abaixado: {current_frame_press_down}")
             attack_action_this_frame = np.zeros(env.action_space.shape[0], dtype=np.uint8)
-            attack_action_this_frame[0] = 1 # Botão 'B' (ATAQUE)
+            if b_press_frames != 1:
+                attack_action_this_frame[0] = 1 # Botão 'B' (ATAQUE)
             if current_frame_press_down:
                 attack_action_this_frame[5] = 1 # Botão 'DOWN' (ABAIXAR)
             action = attack_action_this_frame
