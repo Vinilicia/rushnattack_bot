@@ -104,25 +104,26 @@ def detect_enemy1(frame, block_height=20, block_width=60):
             x += 10
     return positions
 
-def detect_enemy2(frame):
-    lower_orange = np.array([11, 255, 216])
+def detect_enemy2(frame, block_height=20, block_width=60):
+    frame_resized = frame[570:590,:]
+    lower_orange = np.array([5, 250, 200])
     upper_orange = np.array([7, 255, 255])
-    mask = cv2.inRange(frame, lower_orange, upper_orange)
+    mask = cv2.inRange(frame_resized, lower_orange, upper_orange)
 
     # Dilatação
-    kernel = np.ones((10, 10), np.uint8)
-    dilated_mask = cv2.dilate(mask, kernel, iterations=10)
+    kernel = np.ones((5, 5), np.uint8)
+    dilated_mask = cv2.dilate(mask, kernel, iterations=1)
     contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     centers = []
-    min_area = 500
+    min_area = 130
     for cnt in contours:
         area = cv2.contourArea(cnt)
         if area > min_area:
             M = cv2.moments(cnt)
             if M['m00'] != 0:
                 cx = int(M['m10'] / M['m00'])
-                cy = int(M['m01'] / M['m00'])
+                cy = 560
                 centers.append((cx, cy, 2))
     return centers
 
