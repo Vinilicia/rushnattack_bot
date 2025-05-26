@@ -367,7 +367,7 @@ def main():
                             acted_on_enemy_this_frame = True
                     # Adicione aqui elif para ENEMY_TYPE_1, ENEMY_TYPE_2 se tiverem lógicas especiais
                     elif enemy_type == ENEMY_TYPE_2:
-                        if dist < 190 and player_pos[0] < ex:
+                        if dist < 200 and player_pos[0] < ex:
                             a_press_frames = 4
                             if b_press_frames == 0:
                                 b_press_frames = 4
