@@ -19,7 +19,7 @@ ENEMY_TYPE_MINE = 4
 
 # Nome do arquivo para o save state
 SAVE_STATE_FILENAME = "rushnattack_mines_state.sav"
-LOAD_STATE_AT_STARTUP = True # Mude para False se não quiser carregar automaticamente
+LOAD_STATE_AT_STARTUP = False # Mude para False se não quiser carregar automaticamente
 
 class EnemyTracker:
     def __init__(self, initial_measurement, enemy_type, tracker_id):
@@ -366,6 +366,12 @@ def main():
                             action[7 if player_pos[0] < ex else 6] = 1
                             acted_on_enemy_this_frame = True
                     # Adicione aqui elif para ENEMY_TYPE_1, ENEMY_TYPE_2 se tiverem lógicas especiais
+                    elif enemy_type == ENEMY_TYPE_2:
+                        if dist < 190 and player_pos[0] < ex:
+                            a_press_frames = 4
+                            if b_press_frames == 0:
+                                b_press_frames = 4
+
                     # Senão, uma lógica geral de ataque/perseguição:
                     elif dist < 100: # Distância geral de ataque para outros inimigos
                         print(f"INFO: Inimigo {enemy_type} PRÓXIMO. Dist: {dist:.2f}. Preparando tiro.")
@@ -393,19 +399,15 @@ def main():
 
         if b_press_frames > 0:
             print(f"ACTION: ATACANDO! b_frames_restantes: {b_press_frames}, Abaixado: {current_frame_press_down}")
-            attack_action_this_frame = np.zeros(env.action_space.shape[0], dtype=np.uint8)
             if b_press_frames != 1:
-                attack_action_this_frame[0] = 1 # Botão 'B' (ATAQUE)
+                action[0] = 1 # Botão 'B' (ATAQUE)
             if current_frame_press_down:
-                attack_action_this_frame[5] = 1 # Botão 'DOWN' (ABAIXAR)
-            action = attack_action_this_frame
+                action[5] = 1 # Botão 'DOWN' (ABAIXAR)
             b_press_frames -= 1
 
         if a_press_frames > 0:
-            jump_action_final = np.zeros(env.action_space.shape[0], dtype=np.uint8)
-            jump_action_final[4] = 1  # Pressiona 'A' (PULO)
-            jump_action_final[7] = 1     # Mantém movimento para frente durante o pulo
-            action = jump_action_final # Pulo sobrepõe outras ações
+            action[4] = 1  # Pressiona 'A' (PULO)
+            action[7] = 1     # Mantém movimento para frente durante o pulo
             a_press_frames -= 1
 
         elif not acted_on_enemy_this_frame and np.count_nonzero(action) == 0 : # Garante que se nenhuma ação foi definida, ele se move
