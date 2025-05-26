@@ -229,6 +229,9 @@ def main():
     env = retro.make(game="RushnAttack-Nes")
     obs = env.reset()
 
+    final_part = False
+    reach_position = False
+
     b_press_frames = 0
     a_press_frames = 0
 
@@ -325,7 +328,18 @@ def main():
         current_frame_press_down = False
         acted_on_enemy_this_frame = False # Flag para controlar se uma ação específica foi tomada
 
-        if enemies_for_logic:
+        if final_part == True:
+            if reach_position:
+                idx, dist = closest_enemy(player_pos, enemies_for_logic)
+                if dist < 200:
+                    action[8] = 1
+            elif not reach_position:
+                if player_pos[0] <= 100:
+                    reach_position = True
+                    action[7] = 1
+                else:
+                    action[6] = 1
+        elif enemies_for_logic:
             idx, dist = closest_enemy(player_pos, enemies_for_logic)
             if idx != -1:
                 ex, ey, enemy_type = enemies_for_logic[idx]
@@ -395,6 +409,8 @@ def main():
                 action[7] = 1
         else: # Lista `enemies_for_logic` vazia
             print("INFO: Nenhum inimigo na lógica. Movendo por padrão.")
+            if player_pos[0] > 600:
+                final_part = True
             action[7] = 1
 
         if b_press_frames > 0:
@@ -410,7 +426,7 @@ def main():
             action[7] = 1     # Mantém movimento para frente durante o pulo
             a_press_frames -= 1
 
-        elif not acted_on_enemy_this_frame and np.count_nonzero(action) == 0 : # Garante que se nenhuma ação foi definida, ele se move
+        elif not acted_on_enemy_this_frame and np.count_nonzero(action) == 0 and not final_part: # Garante que se nenhuma ação foi definida, ele se move
                 print("ACTION: Nenhuma ação de inimigo ou ataque, movendo por padrão.")
                 action[7] = 1 # Mover para a direita se nenhuma outra ação foi tomada
 
