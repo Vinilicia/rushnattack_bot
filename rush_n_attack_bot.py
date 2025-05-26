@@ -19,7 +19,7 @@ ENEMY_TYPE_MINE = 4
 
 # Nome do arquivo para o save state
 SAVE_STATE_FILENAME = "rushnattack_mines_state.sav"
-LOAD_STATE_AT_STARTUP = True # Mude para False se não quiser carregar automaticamente
+LOAD_STATE_AT_STARTUP = False # Mude para False se não quiser carregar automaticamente
 
 class EnemyTracker:
     def __init__(self, initial_measurement, enemy_type, tracker_id):
@@ -104,25 +104,26 @@ def detect_enemy1(frame, block_height=20, block_width=60):
             x += 10
     return positions
 
-def detect_enemy2(frame):
-    lower_orange = np.array([11, 255, 216])
+def detect_enemy2(frame, block_height=20, block_width=60):
+    frame_resized = frame[570:590,:]
+    lower_orange = np.array([5, 250, 200])
     upper_orange = np.array([7, 255, 255])
-    mask = cv2.inRange(frame, lower_orange, upper_orange)
+    mask = cv2.inRange(frame_resized, lower_orange, upper_orange)
 
     # Dilatação
-    kernel = np.ones((10, 10), np.uint8)
-    dilated_mask = cv2.dilate(mask, kernel, iterations=10)
+    kernel = np.ones((5, 5), np.uint8)
+    dilated_mask = cv2.dilate(mask, kernel, iterations=1)
     contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     centers = []
-    min_area = 500
+    min_area = 130
     for cnt in contours:
         area = cv2.contourArea(cnt)
         if area > min_area:
             M = cv2.moments(cnt)
             if M['m00'] != 0:
                 cx = int(M['m10'] / M['m00'])
-                cy = int(M['m01'] / M['m00'])
+                cy = 560
                 centers.append((cx, cy, 2))
     return centers
 
@@ -228,6 +229,9 @@ def main():
     env = retro.make(game="RushnAttack-Nes")
     obs = env.reset()
 
+    final_part = False
+    reach_position = False
+
     b_press_frames = 0
     a_press_frames = 0
 
@@ -324,7 +328,18 @@ def main():
         current_frame_press_down = False
         acted_on_enemy_this_frame = False # Flag para controlar se uma ação específica foi tomada
 
-        if enemies_for_logic:
+        if final_part == True:
+            if reach_position:
+                idx, dist = closest_enemy(player_pos, enemies_for_logic)
+                if dist < 200:
+                    action[8] = 1
+            elif not reach_position:
+                if player_pos[0] <= 100:
+                    reach_position = True
+                    action[7] = 1
+                else:
+                    action[6] = 1
+        elif enemies_for_logic:
             idx, dist = closest_enemy(player_pos, enemies_for_logic)
             if idx != -1:
                 ex, ey, enemy_type = enemies_for_logic[idx]
@@ -356,7 +371,8 @@ def main():
                         if dist < 100: # Distância de ataque para inimigo tipo 3
                             print(f"INFO: Inimigo Tipo 3 PRÓXIMO. Dist: {dist:.2f}. Abaixando e preparando tiro.")
                             current_frame_press_down = True
-                            b_press_frames = 3 # Ajuste conforme necessário
+                            if b_press_frames == 0:
+                                b_press_frames = 4 # Ajuste conforme necessário
                             action[7 if player_pos[0] < ex else 6] = 1 # Mover enquanto ataca
                             acted_on_enemy_this_frame = True
                         elif dist < 150: # Perseguir inimigo tipo 3
@@ -364,11 +380,18 @@ def main():
                             action[7 if player_pos[0] < ex else 6] = 1
                             acted_on_enemy_this_frame = True
                     # Adicione aqui elif para ENEMY_TYPE_1, ENEMY_TYPE_2 se tiverem lógicas especiais
+                    elif enemy_type == ENEMY_TYPE_2:
+                        if dist < 200 and player_pos[0] < ex:
+                            a_press_frames = 4
+                            if b_press_frames == 0:
+                                b_press_frames = 4
+
                     # Senão, uma lógica geral de ataque/perseguição:
                     elif dist < 100: # Distância geral de ataque para outros inimigos
                         print(f"INFO: Inimigo {enemy_type} PRÓXIMO. Dist: {dist:.2f}. Preparando tiro.")
                         # current_frame_press_down permanece False por padrão para ataque em pé
-                        b_press_frames = 3 # Ajuste conforme necessário
+                        if b_press_frames == 0:
+                            b_press_frames = 4 # Ajuste conforme necessário
                         action[7 if player_pos[0] < ex else 6] = 1 # Mover enquanto ataca
                         acted_on_enemy_this_frame = True
                     elif dist < 250 and enemy_type != ENEMY_TYPE_MINE: # Distância geral de perseguição
@@ -386,25 +409,24 @@ def main():
                 action[7] = 1
         else: # Lista `enemies_for_logic` vazia
             print("INFO: Nenhum inimigo na lógica. Movendo por padrão.")
+            if player_pos[0] > 600:
+                final_part = True
             action[7] = 1
 
         if b_press_frames > 0:
             print(f"ACTION: ATACANDO! b_frames_restantes: {b_press_frames}, Abaixado: {current_frame_press_down}")
-            attack_action_this_frame = np.zeros(env.action_space.shape[0], dtype=np.uint8)
-            attack_action_this_frame[0] = 1 # Botão 'B' (ATAQUE)
+            if b_press_frames != 1:
+                action[0] = 1 # Botão 'B' (ATAQUE)
             if current_frame_press_down:
-                attack_action_this_frame[5] = 1 # Botão 'DOWN' (ABAIXAR)
-            action = attack_action_this_frame
+                action[5] = 1 # Botão 'DOWN' (ABAIXAR)
             b_press_frames -= 1
 
         if a_press_frames > 0:
-            jump_action_final = np.zeros(env.action_space.shape[0], dtype=np.uint8)
-            jump_action_final[4] = 1  # Pressiona 'A' (PULO)
-            jump_action_final[7] = 1     # Mantém movimento para frente durante o pulo
-            action = jump_action_final # Pulo sobrepõe outras ações
+            action[4] = 1  # Pressiona 'A' (PULO)
+            action[7] = 1     # Mantém movimento para frente durante o pulo
             a_press_frames -= 1
 
-        elif not acted_on_enemy_this_frame and np.count_nonzero(action) == 0 : # Garante que se nenhuma ação foi definida, ele se move
+        elif not acted_on_enemy_this_frame and np.count_nonzero(action) == 0 and not final_part: # Garante que se nenhuma ação foi definida, ele se move
                 print("ACTION: Nenhuma ação de inimigo ou ataque, movendo por padrão.")
                 action[7] = 1 # Mover para a direita se nenhuma outra ação foi tomada
 
